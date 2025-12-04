@@ -1,13 +1,24 @@
 class TradingChart {
     constructor() {
         this.chart = null;
-        this.priceData = {};
-        this.entryPoints = {};
-        this.exitPoints = {};
+        this.priceData = {
+            BTC: [],
+            SHIB: [],
+            DOGE: []
+        };
+        this.entryPoints = {
+            BTC: [],
+            SHIB: [],
+            DOGE: []
+        };
+        this.exitPoints = {
+            BTC: [],
+            SHIB: [],
+            DOGE: []
+        };
         this.timeLabels = [];
-        
         this.currentAsset = 'BTC';
-        this.lastPrice = {
+        this.currentPrices = {
             BTC: 50000,
             SHIB: 0.00001,
             DOGE: 0.15
@@ -20,6 +31,11 @@ class TradingChart {
     initChart() {
         const ctx = document.getElementById('priceChart').getContext('2d');
         
+        // Генерируем начальные метки времени
+        for (let i = 0; i < 50; i++) {
+            this.timeLabels.push(`t-${50 - i}`);
+        }
+        
         this.chart = new Chart(ctx, {
             type: 'line',
             data: {
@@ -27,16 +43,17 @@ class TradingChart {
                 datasets: [
                     {
                         label: 'Цена',
-                        data: this.priceData[this.currentAsset] || [],
+                        data: this.priceData[this.currentAsset],
                         borderColor: '#00ff88',
                         backgroundColor: 'rgba(0, 255, 136, 0.1)',
                         borderWidth: 2,
                         fill: true,
-                        tension: 0.4
+                        tension: 0.1,
+                        pointRadius: 0
                     },
                     {
                         label: 'Вход',
-                        data: this.entryPoints[this.currentAsset] || [],
+                        data: this.entryPoints[this.currentAsset],
                         pointBackgroundColor: '#00ff88',
                         pointBorderColor: '#fff',
                         pointRadius: 6,
@@ -46,7 +63,7 @@ class TradingChart {
                     },
                     {
                         label: 'Выход',
-                        data: this.exitPoints[this.currentAsset] || [],
+                        data: this.exitPoints[this.currentAsset],
                         pointBackgroundColor: '#ff4444',
                         pointBorderColor: '#fff',
                         pointRadius: 6,
@@ -59,13 +76,24 @@ class TradingChart {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: false,
                 plugins: {
                     legend: {
                         display: false
                     },
                     tooltip: {
                         mode: 'index',
-                        intersect: false
+                        intersect: false,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                label += '$' + context.parsed.y.toLocaleString();
+                                return label;
+                            }
+                        }
                     }
                 },
                 scales: {
@@ -86,10 +114,6 @@ class TradingChart {
                             }
                         }
                     }
-                },
-                interaction: {
-                    intersect: false,
-                    mode: 'nearest'
                 }
             }
         });
@@ -98,39 +122,37 @@ class TradingChart {
     generateInitialData() {
         const data = loadFromStorage();
         
-        // Инициализация данных для каждой валюты
         ['BTC', 'SHIB', 'DOGE'].forEach(asset => {
-            this.priceData[asset] = [];
-            this.entryPoints[asset] = [];
-            this.exitPoints[asset] = [];
-            
             const basePrice = data?.market?.prices[asset] || 
                 (asset === 'BTC' ? 50000 : asset === 'SHIB' ? 0.00001 : 0.15);
-            this.lastPrice[asset] = basePrice;
             
-            // Генерация 100 точек
-            for (let i = 0; i < 100; i++) {
+            this.currentPrices[asset] = basePrice;
+            
+            // Генерируем 50 начальных точек
+            for (let i = 0; i < 50; i++) {
                 if (i === 0) {
                     this.priceData[asset].push(basePrice);
                 } else {
+                    // Создаем реалистичное движение цены
                     let change = (Math.random() - 0.5) * basePrice * 0.02;
                     
-                    if (this.priceData[asset][i-1] < basePrice * 0.9) {
-                        change += Math.random() * basePrice * 0.01;
-                    } else if (this.priceData[asset][i-1] > basePrice * 1.1) {
-                        change -= Math.random() * basePrice * 0.01;
+                    // Эффект поддержки/сопротивления
+                    const lastPrice = this.priceData[asset][i-1];
+                    if (lastPrice < basePrice * 0.95) {
+                        change += Math.random() * basePrice * 0.01; // поддержка
+                    } else if (lastPrice > basePrice * 1.05) {
+                        change -= Math.random() * basePrice * 0.01; // сопротивление
                     }
                     
-                    this.priceData[asset].push(this.priceData[asset][i-1] + change);
-                    this.lastPrice[asset] = this.priceData[asset][i];
+                    // Немного тренда
+                    change += (Math.random() - 0.5) * basePrice * 0.005;
+                    
+                    const newPrice = lastPrice + change;
+                    this.priceData[asset].push(newPrice);
+                    this.currentPrices[asset] = newPrice;
                 }
             }
         });
-        
-        // Создаем timeLabels
-        for (let i = 0; i < 100; i++) {
-            this.timeLabels.push(i);
-        }
         
         this.updateChart();
     }
@@ -142,133 +164,137 @@ class TradingChart {
     
     updateChart() {
         if (this.chart) {
-            this.chart.data.labels = this.timeLabels.slice(-100); // Последние 100 точек
-            this.chart.data.datasets[0].data = this.priceData[this.currentAsset] || [];
-            this.chart.data.datasets[1].data = this.entryPoints[this.currentAsset] || [];
-            this.chart.data.datasets[2].data = this.exitPoints[this.currentAsset] || [];
+            this.chart.data.labels = this.timeLabels;
+            this.chart.data.datasets[0].data = this.priceData[this.currentAsset];
+            this.chart.data.datasets[1].data = this.entryPoints[this.currentAsset];
+            this.chart.data.datasets[2].data = this.exitPoints[this.currentAsset];
             this.chart.update('none');
         }
     }
     
-    addPricePoint(price) {
-        if (!this.priceData[this.currentAsset]) {
-            this.priceData[this.currentAsset] = [];
+    addNewPrice(asset, price) {
+        // Добавляем новую цену
+        this.priceData[asset].push(price);
+        
+        // Удаляем самую старую цену, чтобы сохранить 50 точек
+        if (this.priceData[asset].length > 50) {
+            this.priceData[asset].shift();
         }
         
-        // Добавляем новую точку времени
-        if (this.timeLabels.length >= 100) {
+        // Обновляем текущую цену
+        this.currentPrices[asset] = price;
+        
+        // Обновляем метки времени
+        if (this.timeLabels.length >= 50) {
             this.timeLabels.shift();
         }
-        this.timeLabels.push(this.timeLabels.length > 0 ? 
-            this.timeLabels[this.timeLabels.length - 1] + 1 : 0);
+        this.timeLabels.push(new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}));
         
-        // Добавляем новую цену
-        if (this.priceData[this.currentAsset].length >= 100) {
-            this.priceData[this.currentAsset].shift();
+        // Сдвигаем точки входа/выхода
+        this.entryPoints[asset] = this.entryPoints[asset].map(point => {
+            return {x: point.x + 1, y: point.y};
+        }).filter(point => point.x < 50);
+        
+        this.exitPoints[asset] = this.exitPoints[asset].map(point => {
+            return {x: point.x + 1, y: point.y};
+        }).filter(point => point.x < 50);
+        
+        // Если это текущий актив, обновляем график
+        if (asset === this.currentAsset) {
+            this.updateChart();
         }
-        this.priceData[this.currentAsset].push(price);
-        
-        // Обновляем точки входа/выхода
-        if (this.entryPoints[this.currentAsset]) {
-            this.entryPoints[this.currentAsset] = this.entryPoints[this.currentAsset].map(p => {
-                return {x: p.x + 1, y: p.y};
-            });
-        }
-        
-        if (this.exitPoints[this.currentAsset]) {
-            this.exitPoints[this.currentAsset] = this.exitPoints[this.currentAsset].map(p => {
-                return {x: p.x + 1, y: p.y};
-            });
-        }
-        
-        this.updateChart();
     }
     
-    addEntryPoint(price) {
-        if (!this.entryPoints[this.currentAsset]) {
-            this.entryPoints[this.currentAsset] = [];
-        }
-        
-        const index = (this.priceData[this.currentAsset] || []).length - 1;
-        this.entryPoints[this.currentAsset].push({
+    addEntryPoint(asset, price) {
+        const index = this.priceData[asset].length - 1;
+        this.entryPoints[asset].push({
             x: index,
             y: price
         });
-        this.updateChart();
+        
+        if (asset === this.currentAsset) {
+            this.updateChart();
+        }
     }
     
-    addExitPoint(price) {
-        if (!this.exitPoints[this.currentAsset]) {
-            this.exitPoints[this.currentAsset] = [];
-        }
-        
-        const index = (this.priceData[this.currentAsset] || []).length - 1;
-        this.exitPoints[this.currentAsset].push({
+    addExitPoint(asset, price) {
+        const index = this.priceData[asset].length - 1;
+        this.exitPoints[asset].push({
             x: index,
             y: price
         });
-        this.updateChart();
+        
+        if (asset === this.currentAsset) {
+            this.updateChart();
+        }
     }
     
     updatePrice(asset) {
         const data = loadFromStorage();
-        const basePrice = this.lastPrice[asset] || 
-            (asset === 'BTC' ? 50000 : asset === 'SHIB' ? 0.00001 : 0.15);
+        const currentPrice = this.currentPrices[asset];
         const volatility = data?.market?.volatility[asset] || 0.02;
         
+        // Получаем позиции для этого актива
         const positions = data?.positions || [];
-        const buyPressure = positions.filter(p => p.direction === 'long' && p.asset === asset).length;
-        const sellPressure = positions.filter(p => p.direction === 'short' && p.asset === asset).length;
+        const assetPositions = positions.filter(p => p.asset === asset);
         
-        let priceChange = 0;
+        // Рассчитываем давление покупок/продаж
+        let marketPressure = 0;
+        assetPositions.forEach(pos => {
+            if (pos.direction === 'long') {
+                marketPressure += pos.amount * 0.0001; // Покупки увеличивают цену
+            } else {
+                marketPressure -= pos.amount * 0.0001; // Продажи уменьшают цену
+            }
+        });
         
-        // Базовая волатильность
-        priceChange = (Math.random() - 0.5) * volatility;
-        
-        // Влияние позиций
-        if (buyPressure > sellPressure) {
-            priceChange += Math.random() * volatility * 0.5;
-        } else if (sellPressure > buyPressure) {
-            priceChange -= Math.random() * volatility * 0.5;
-        }
+        // Базовая волатильность + влияние позиций
+        let priceChange = (Math.random() - 0.5) * volatility * 2;
+        priceChange += marketPressure;
         
         // Влияние рыночных событий
         if (window.marketEvents && window.marketEvents.activeEvents.length > 0) {
             window.marketEvents.activeEvents.forEach(event => {
-                priceChange += event.priceImpact * 0.1; // Уменьшаем влияние событий
+                priceChange += (event.priceImpact * 0.3); // Уменьшенное влияние
             });
         }
         
-        const newPrice = basePrice * (1 + priceChange);
-        this.lastPrice[asset] = newPrice;
+        // Ограничиваем максимальное изменение
+        priceChange = Math.max(-volatility * 3, Math.min(volatility * 3, priceChange));
         
-        // Обновляем цену в хранилище
+        const newPrice = currentPrice * (1 + priceChange);
+        
+        // Обновляем в хранилище
         if (data) {
             data.market.prices[asset] = newPrice;
+            data.market.lastUpdate = Date.now();
             saveToStorage(data);
         }
         
-        // Обновляем график если это текущий актив
-        if (asset === this.currentAsset) {
-            this.addPricePoint(newPrice);
-        }
+        // Добавляем точку на график
+        this.addNewPrice(asset, newPrice);
         
-        // Проверка ликвидации
-        this.checkLiquidation(asset, newPrice, data?.balance || 2000);
+        // Проверяем ликвидацию
+        this.checkLiquidation(asset, newPrice);
         
         return newPrice;
     }
     
-    checkLiquidation(asset, currentPrice, balance) {
+    checkLiquidation(asset, currentPrice) {
         const data = loadFromStorage();
-        const positions = data?.positions || [];
+        if (!data) return;
         
+        const positions = data.positions || [];
         positions.forEach(position => {
             if (position.asset === asset) {
-                const priceDiff = Math.abs(currentPrice - position.entryPrice) / position.entryPrice;
-                const lossPercent = priceDiff * position.leverage * 100;
+                const priceDiff = position.direction === 'long' 
+                    ? (position.entryPrice - currentPrice) // Для лонга: цена упала
+                    : (currentPrice - position.entryPrice); // Для шорта: цена выросла
+                
+                const lossPercent = (priceDiff / position.entryPrice) * position.leverage * 100;
                 
                 if (lossPercent >= 100) {
+                    // Ликвидация
                     this.handleLiquidation(position, currentPrice);
                 }
             }
@@ -279,36 +305,37 @@ class TradingChart {
         const data = loadFromStorage();
         if (!data) return;
         
-        // Расчет P&L для ликвидации
+        // Рассчитываем P&L при ликвидации
         const priceDiff = currentPrice - position.entryPrice;
-        const pnl = position.direction === 'long' ? 
-            priceDiff * position.amount * position.leverage :
-            -priceDiff * position.amount * position.leverage;
+        let pnl;
+        if (position.direction === 'long') {
+            pnl = priceDiff * position.amount * position.leverage;
+        } else {
+            pnl = -priceDiff * position.amount * position.leverage;
+        }
         
-        // Обновляем баланс
-        data.balance = Math.max(0, data.balance + pnl);
+        // Обновляем баланс (не может быть отрицательным)
+        const newBalance = Math.max(0, data.balance + pnl);
+        updateBalance(newBalance);
+        
+        // Добавляем точку выхода на график
+        this.addExitPoint(position.asset, currentPrice);
         
         // Удаляем позицию
         data.positions = data.positions.filter(p => p.id !== position.id);
         saveToStorage(data);
         
-        // Обновляем интерфейс если tradingSystem существует
+        // Обновляем интерфейс
         if (window.tradingSystem) {
             window.tradingSystem.openPositions = window.tradingSystem.openPositions.filter(p => p.id !== position.id);
-            window.tradingSystem.updateBalanceDisplay();
             window.tradingSystem.updatePositionsDisplay();
+            window.tradingSystem.updateBalanceDisplay();
         }
         
-        // Показываем уведомление
-        alert(`Ликвидация! Позиция ${position.asset} закрыта по стоп-ауту. P&L: $${pnl.toFixed(2)}`);
-    }
-}
-
-function handleLiquidation(position) {
-    // Функция для глобального вызова
-    if (window.tradingChart) {
-        const currentPrice = window.tradingChart.lastPrice[position.asset] || position.entryPrice;
-        window.tradingChart.handleLiquidation(position, currentPrice);
+        // Уведомление
+        setTimeout(() => {
+            alert(`❗ Ликвидация! Позиция ${position.asset} закрыта.\nP&L: $${pnl.toFixed(2)}\nНовый баланс: $${newBalance.toFixed(2)}`);
+        }, 100);
     }
 }
 
@@ -321,4 +348,3 @@ function initChart() {
 
 window.initChart = initChart;
 window.TradingChart = TradingChart;
-window.handleLiquidation = handleLiquidation;
