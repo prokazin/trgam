@@ -183,6 +183,34 @@ body {
     font-weight: bold;
 }
 
+/* Выбор суммы */
+.amount-selector {
+    margin-bottom: 15px;
+}
+
+.amount-buttons {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.amount-btn {
+    flex: 1;
+    padding: 10px;
+    background: #2d2d5a;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.amount-btn.active {
+    background: #2d2d5a;
+    color: #00ff88;
+    border: 2px solid #00ff88;
+    font-weight: bold;
+}
+
 /* Торговые кнопки */
 .trade-actions {
     display: flex;
@@ -191,7 +219,7 @@ body {
     margin-bottom: 20px;
 }
 
-input[type="number"] {
+#stopLoss {
     padding: 12px;
     background: #2d2d5a;
     color: white;
@@ -263,13 +291,13 @@ input[type="number"] {
 }
 
 /* Списки */
-.history-list, .ranking-list, .events-list {
+.history-list, .ranking-list {
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
 
-.history-item, .ranking-item, .event-item {
+.history-item, .ranking-item {
     background: #1a1a2e;
     border-radius: 12px;
     padding: 15px;
