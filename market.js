@@ -45,6 +45,7 @@ class MarketEvents {
     }
     
     startRandomEvents() {
+        // Случайное событие каждые 30-60 секунд
         this.eventInterval = setInterval(() => {
             this.triggerRandomEvent();
         }, 30000 + Math.random() * 30000);
@@ -56,11 +57,9 @@ class MarketEvents {
         
         this.showEventNotification(randomEvent);
         
-        this.applyEventEffect(randomEvent);
-        
+        // Удаление события через 30 секунд
         setTimeout(() => {
             this.activeEvents = this.activeEvents.filter(e => e.id !== randomEvent.id);
-            this.removeEventEffect(randomEvent);
         }, 30000);
     }
     
@@ -83,48 +82,20 @@ class MarketEvents {
             z-index: 1000;
             max-width: 300px;
             animation: slideIn 0.3s ease;
+            border-left: 4px solid ${event.type === 'positive' ? '#00ff88' : '#ff4444'};
         `;
         
         document.body.appendChild(notification);
         
+        // Удаление через 5 секунд
         setTimeout(() => {
             notification.style.animation = 'slideOut 0.3s ease';
             setTimeout(() => {
-                document.body.removeChild(notification);
+                if (notification.parentNode) {
+                    document.body.removeChild(notification);
+                }
             }, 300);
         }, 5000);
-    }
-    
-    applyEventEffect(event) {
-        const data = loadFromStorage();
-        if (!data) return;
-        
-        Object.keys(data.market.volatility).forEach(asset => {
-            data.market.volatility[asset] += event.volatilityImpact;
-            data.market.volatility[asset] = Math.max(0.01, Math.min(0.2, data.market.volatility[asset]));
-        });
-        
-        Object.keys(data.market.prices).forEach(asset => {
-            data.market.prices[asset] *= (1 + event.priceImpact);
-        });
-        
-        saveToStorage(data);
-    }
-    
-    removeEventEffect(event) {
-        const data = loadFromStorage();
-        if (!data) return;
-        
-        Object.keys(data.market.volatility).forEach(asset => {
-            data.market.volatility[asset] -= event.volatilityImpact;
-            data.market.volatility[asset] = Math.max(0.01, Math.min(0.2, data.market.volatility[asset]));
-        });
-        
-        Object.keys(data.market.prices).forEach(asset => {
-            data.market.prices[asset] /= (1 + event.priceImpact * 0.5);
-        });
-        
-        saveToStorage(data);
     }
 }
 
