@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Trading Game</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Верхняя панель -->
+        <div class="top-bar">
+            <div class="balance-info">
+                <span id="userBalance">$2,000.00</span>
+                <span id="roeDisplay">ROE: 0%</span>
+            </div>
+            <div class="user-controls">
+                <button onclick="buyStars()" class="tg-button">Купить Stars</button>
+                <button onclick="restoreAccount()" class="tg-button">Восстановить</button>
+            </div>
+        </div>
+
+        <!-- Вкладки -->
+        <div class="tabs">
+            <button class="tab active" data-tab="trade">Торговля</button>
+            <button class="tab" data-tab="history">История</button>
+            <button class="tab" data-tab="ranking">Рейтинг</button>
+            <button class="tab" data-tab="events">События</button>
+        </div>
+
+        <!-- Контент вкладок -->
+        <div class="tab-content">
+            <!-- Вкладка Торговля -->
+            <div id="trade" class="content-pane active">
+                <div class="chart-container">
+                    <canvas id="priceChart"></canvas>
+                </div>
+                
+                <div class="trade-controls">
+                    <div class="asset-selector">
+                        <select id="assetSelect">
+                            <option value="BTC">BTC/USD</option>
+                            <option value="SHIB">SHIB/USD</option>
+                            <option value="DOGE">DOGE/USD</option>
+                        </select>
+                        <div class="price-info">
+                            <span id="currentPrice">$0.00</span>
+                            <span id="priceChange">+0.00%</span>
+                        </div>
+                    </div>
+
+                    <div class="position-controls">
+                        <div class="leverage-selector">
+                            <span>Плечо:</span>
+                            <div class="leverage-buttons">
+                                <button class="lev-btn" data-leverage="1">1x</button>
+                                <button class="lev-btn active" data-leverage="2">2x</button>
+                                <button class="lev-btn" data-leverage="5">5x</button>
+                                <button class="lev-btn" data-leverage="10">10x</button>
+                            </div>
+                        </div>
+
+                        <div class="trade-actions">
+                            <input type="number" id="tradeAmount" placeholder="Сумма" min="1" value="100">
+                            <input type="number" id="stopLoss" placeholder="Стоп-лосс %" min="1" max="99" value="5">
+                            
+                            <div class="action-buttons">
+                                <button onclick="openPosition('long')" class="buy-btn">Купить</button>
+                                <button onclick="openPosition('short')" class="sell-btn">Продать</button>
+                                <button onclick="closePosition()" class="close-btn">Закрыть</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="position-info">
+                        <div class="open-positions">
+                            <h4>Открытые позиции</h4>
+                            <div id="openPositionsList"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Вкладка История -->
+            <div id="history" class="content-pane">
+                <h3>История сделок</h3>
+                <div class="history-list" id="historyList"></div>
+            </div>
+
+            <!-- Вкладка Рейтинг -->
+            <div id="ranking" class="content-pane">
+                <h3>Топ игроков</h3>
+                <div class="ranking-list" id="rankingList"></div>
+            </div>
+
+            <!-- Вкладка События -->
+            <div id="events" class="content-pane">
+                <h3>Рыночные события</h3>
+                <div class="events-list" id="eventsList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="storage.js"></script>
+    <script src="chart.js"></script>
+    <script src="trading.js"></script>
+    <script src="market.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
