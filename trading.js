@@ -129,7 +129,7 @@ class TradingSystem {
             
             this.applyMarketImpact(direction, amount);
             
-            alert(`Позиция открыта: ${direction === 'long' ? 'Лонг' : 'Шорт'} ${this.currentAsset}`);
+            alert(`Позиция открыта: ${direction === 'long' ? 'Лонг' : 'Шорт'} ${this.currentAsset} на $${amount}`);
         }
     }
     
@@ -139,16 +139,36 @@ class TradingSystem {
             return;
         }
         
+        // Закрываем последнюю позицию для текущего актива
+        const currentAssetPositions = this.openPositions.filter(p => p.asset === this.currentAsset);
+        if (currentAssetPositions.length === 0) {
+            alert('Нет открытых позиций для этой валюты');
+            return;
+        }
+        
+        const position = currentAssetPositions[currentAssetPositions.length - 1];
+        this.closeSpecificPosition(position.id);
+    }
+    
+    closeSpecificPosition(positionId) {
+        const position = this.openPositions.find(p => p.id === positionId);
+        if (!position) return;
+        
         const currentPrice = parseFloat(
             document.getElementById('currentPrice').textContent.replace('$', '').replace(',', '')
         );
         
-        const position = this.openPositions[this.openPositions.length - 1];
-        
         const priceDiff = currentPrice - position.entryPrice;
-        const pnl = position.direction === 'long' ? 
-            priceDiff * position.amount * position.leverage :
-            -priceDiff * position.amount * position.leverage;
+        
+        // ВАЖНО: Исправленный расчет P&L
+        let pnl;
+        if (position.direction === 'long') {
+            // Для лонга: прибыль = (текущая цена - цена входа) * сумма * плечо
+            pnl = priceDiff * position.amount * position.leverage;
+        } else {
+            // Для шорта: прибыль = (цена входа - текущая цена) * сумма * плечо
+            pnl = -priceDiff * position.amount * position.leverage;
+        }
         
         const roe = (pnl / position.amount) * 100;
         
@@ -156,24 +176,30 @@ class TradingSystem {
         position.pnl = pnl;
         position.roe = roe;
         
+        // Сохраняем в историю
         saveToHistory(position);
         
+        // Обновляем баланс
         const data = loadFromStorage();
         const newBalance = (data?.balance || 2000) + pnl;
         updateBalance(newBalance);
         
+        // Удаляем позицию из хранилища
         const dataStorage = loadFromStorage();
         if (dataStorage) {
-            dataStorage.positions = dataStorage.positions.filter(p => p.id !== position.id);
+            dataStorage.positions = dataStorage.positions.filter(p => p.id !== positionId);
             saveToStorage(dataStorage);
         }
         
-        this.openPositions = this.openPositions.filter(p => p.id !== position.id);
+        // Удаляем позицию из открытых
+        this.openPositions = this.openPositions.filter(p => p.id !== positionId);
         
+        // Добавляем точку выхода на график
         if (window.tradingChart) {
             window.tradingChart.addExitPoint(currentPrice);
         }
         
+        // Обновляем интерфейс
         this.updatePositionsDisplay();
         this.updateBalanceDisplay();
         
@@ -184,12 +210,18 @@ class TradingSystem {
         this.openPositions.forEach(position => {
             if (position.asset === this.currentAsset) {
                 const priceDiff = currentPrice - position.entryPrice;
-                position.pnl = position.direction === 'long' ? 
-                    priceDiff * position.amount * position.leverage :
-                    -priceDiff * position.amount * position.leverage;
+                
+                // Исправленный расчет P&L
+                if (position.direction === 'long') {
+                    position.pnl = priceDiff * position.amount * position.leverage;
+                } else {
+                    position.pnl = -priceDiff * position.amount * position.leverage;
+                }
+                
                 position.roe = (position.pnl / position.amount) * 100;
                 position.currentPrice = currentPrice;
                 
+                // Проверка стоп-лосса
                 if (position.stopLoss) {
                     const lossPercent = Math.abs(position.roe);
                     if (lossPercent >= position.stopLoss) {
@@ -206,10 +238,24 @@ class TradingSystem {
         const position = this.openPositions.find(p => p.id === positionId);
         if (!position) return;
         
+        const currentPrice = position.currentPrice;
+        const priceDiff = currentPrice - position.entryPrice;
+        
+        // Исправленный расчет P&L
+        let pnl;
+        if (position.direction === 'long') {
+            pnl = priceDiff * position.amount * position.leverage;
+        } else {
+            pnl = -priceDiff * position.amount * position.leverage;
+        }
+        
+        position.pnl = pnl;
+        position.roe = (pnl / position.amount) * 100;
+        
         saveToHistory(position);
         
         const data = loadFromStorage();
-        const newBalance = (data?.balance || 2000) + position.pnl;
+        const newBalance = (data?.balance || 2000) + pnl;
         updateBalance(newBalance);
         
         const dataStorage = loadFromStorage();
@@ -223,8 +269,10 @@ class TradingSystem {
         this.updateBalanceDisplay();
         
         if (window.tradingChart) {
-            window.tradingChart.addExitPoint(position.currentPrice);
+            window.tradingChart.addExitPoint(currentPrice);
         }
+        
+        alert(`Позиция закрыта по стоп-лоссу. P&L: $${pnl.toFixed(2)}`);
     }
     
     updatePositionsDisplay() {
@@ -253,8 +301,9 @@ class TradingSystem {
                 </div>
                 <div class="position-details">
                     <span>Вход: $${position.entryPrice.toFixed(this.getPriceDecimals())}</span>
+                    <span>Сумма: $${position.amount.toFixed(2)}</span>
                     <span class="position-profit ${position.pnl >= 0 ? 'positive' : 'negative'}">
-                        $${position.pnl.toFixed(2)} (${position.roe.toFixed(2)}%)
+                        P&L: $${position.pnl.toFixed(2)} (${position.roe.toFixed(2)}%)
                     </span>
                 </div>
             </div>
@@ -282,6 +331,8 @@ class TradingSystem {
             if (data) {
                 const volatilityChange = direction === 'long' ? 0.01 : -0.01;
                 data.market.volatility[this.currentAsset] += volatilityChange;
+                // Ограничиваем волатильность
+                data.market.volatility[this.currentAsset] = Math.max(0.01, Math.min(0.2, data.market.volatility[this.currentAsset]));
                 saveToStorage(data);
             }
         }
