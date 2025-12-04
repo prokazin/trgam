@@ -2,6 +2,7 @@ class TradingSystem {
     constructor() {
         this.currentAsset = 'BTC';
         this.currentLeverage = 2;
+        this.currentAmount = 100;
         this.openPositions = [];
         this.updateInterval = null;
         
@@ -21,13 +22,14 @@ class TradingSystem {
     }
     
     setupEventListeners() {
-        // Выбор актива
         document.getElementById('assetSelect').addEventListener('change', (e) => {
             this.currentAsset = e.target.value;
+            if (window.tradingChart) {
+                window.tradingChart.switchAsset(this.currentAsset);
+            }
             this.updateCurrentPrice();
         });
         
-        // Выбор плеча
         document.querySelectorAll('.lev-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 document.querySelectorAll('.lev-btn').forEach(b => b.classList.remove('active'));
@@ -35,32 +37,37 @@ class TradingSystem {
                 this.currentLeverage = parseInt(e.target.dataset.leverage);
             });
         });
+        
+        document.querySelectorAll('.amount-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                this.currentAmount = parseInt(e.target.dataset.amount);
+            });
+        });
     }
     
     startPriceUpdates() {
-        // Обновление цены каждые 3 секунды
         this.updateInterval = setInterval(() => {
             this.updateCurrentPrice();
         }, 3000);
     }
     
     updateCurrentPrice() {
-        if (!tradingChart) return;
+        if (!window.tradingChart) return;
         
-        const newPrice = tradingChart.updatePrice(this.currentAsset);
+        const newPrice = window.tradingChart.updatePrice(this.currentAsset);
         
-        // Обновление отображения цены
         const priceElement = document.getElementById('currentPrice');
         const changeElement = document.getElementById('priceChange');
         
-        const prevPrice = parseFloat(priceElement.textContent.replace('$', '')) || newPrice;
+        const prevPrice = parseFloat(priceElement.textContent.replace('$', '').replace(',', '')) || newPrice;
         const changePercent = ((newPrice - prevPrice) / prevPrice * 100);
         
         priceElement.textContent = `$${newPrice.toFixed(this.getPriceDecimals())}`;
         changeElement.textContent = `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%`;
         changeElement.className = changePercent >= 0 ? 'positive' : 'negative';
         
-        // Обновление P&L открытых позиций
         this.updatePositionsPnL(newPrice);
     }
     
@@ -74,28 +81,26 @@ class TradingSystem {
     }
     
     openPosition(direction) {
-        const amountInput = document.getElementById('tradeAmount');
         const stopLossInput = document.getElementById('stopLoss');
-        
-        const amount = parseFloat(amountInput.value);
         const stopLoss = parseFloat(stopLossInput.value);
         
+        const amount = this.currentAmount;
+        
         if (!amount || amount <= 0) {
-            alert('Введите корректную сумму');
+            alert('Выберите сумму');
             return;
         }
         
         const data = loadFromStorage();
         const balance = data?.balance || 2000;
         
-        // Проверка баланса
         if (amount > balance) {
             alert('Недостаточно средств');
             return;
         }
         
         const currentPrice = parseFloat(
-            document.getElementById('currentPrice').textContent.replace('$', '')
+            document.getElementById('currentPrice').textContent.replace('$', '').replace(',', '')
         );
         
         const position = {
@@ -112,18 +117,16 @@ class TradingSystem {
             roe: 0
         };
         
-        // Сохранение позиции
         if (savePosition(position)) {
             this.openPositions.push(position);
             
-            // Отображение точки входа на графике
-            tradingChart.addEntryPoint(currentPrice);
+            if (window.tradingChart) {
+                window.tradingChart.addEntryPoint(currentPrice);
+            }
             
-            // Обновление интерфейса
             this.updatePositionsDisplay();
             this.updateBalanceDisplay();
             
-            // Влияние на рынок
             this.applyMarketImpact(direction, amount);
             
             alert(`Позиция открыта: ${direction === 'long' ? 'Лонг' : 'Шорт'} ${this.currentAsset}`);
@@ -137,13 +140,11 @@ class TradingSystem {
         }
         
         const currentPrice = parseFloat(
-            document.getElementById('currentPrice').textContent.replace('$', '')
+            document.getElementById('currentPrice').textContent.replace('$', '').replace(',', '')
         );
         
-        // Закрываем последнюю позицию (можно изменить логику)
         const position = this.openPositions[this.openPositions.length - 1];
         
-        // Расчет P&L
         const priceDiff = currentPrice - position.entryPrice;
         const pnl = position.direction === 'long' ? 
             priceDiff * position.amount * position.leverage :
@@ -151,20 +152,16 @@ class TradingSystem {
         
         const roe = (pnl / position.amount) * 100;
         
-        // Обновление позиции
         position.currentPrice = currentPrice;
         position.pnl = pnl;
         position.roe = roe;
         
-        // Сохранение в историю
         saveToHistory(position);
         
-        // Обновление баланса
         const data = loadFromStorage();
         const newBalance = (data?.balance || 2000) + pnl;
         updateBalance(newBalance);
         
-        // Удаление из открытых позиций
         const dataStorage = loadFromStorage();
         if (dataStorage) {
             dataStorage.positions = dataStorage.positions.filter(p => p.id !== position.id);
@@ -173,10 +170,10 @@ class TradingSystem {
         
         this.openPositions = this.openPositions.filter(p => p.id !== position.id);
         
-        // Отображение точки выхода на графике
-        tradingChart.addExitPoint(currentPrice);
+        if (window.tradingChart) {
+            window.tradingChart.addExitPoint(currentPrice);
+        }
         
-        // Обновление интерфейса
         this.updatePositionsDisplay();
         this.updateBalanceDisplay();
         
@@ -185,18 +182,19 @@ class TradingSystem {
     
     updatePositionsPnL(currentPrice) {
         this.openPositions.forEach(position => {
-            const priceDiff = currentPrice - position.entryPrice;
-            position.pnl = position.direction === 'long' ? 
-                priceDiff * position.amount * position.leverage :
-                -priceDiff * position.amount * position.leverage;
-            position.roe = (position.pnl / position.amount) * 100;
-            position.currentPrice = currentPrice;
-            
-            // Проверка стоп-лосса
-            if (position.stopLoss) {
-                const lossPercent = Math.abs(position.roe);
-                if (lossPercent >= position.stopLoss) {
-                    this.closePositionById(position.id);
+            if (position.asset === this.currentAsset) {
+                const priceDiff = currentPrice - position.entryPrice;
+                position.pnl = position.direction === 'long' ? 
+                    priceDiff * position.amount * position.leverage :
+                    -priceDiff * position.amount * position.leverage;
+                position.roe = (position.pnl / position.amount) * 100;
+                position.currentPrice = currentPrice;
+                
+                if (position.stopLoss) {
+                    const lossPercent = Math.abs(position.roe);
+                    if (lossPercent >= position.stopLoss) {
+                        this.closePositionById(position.id);
+                    }
                 }
             }
         });
@@ -210,12 +208,10 @@ class TradingSystem {
         
         saveToHistory(position);
         
-        // Обновление баланса
         const data = loadFromStorage();
         const newBalance = (data?.balance || 2000) + position.pnl;
         updateBalance(newBalance);
         
-        // Удаление позиции
         const dataStorage = loadFromStorage();
         if (dataStorage) {
             dataStorage.positions = dataStorage.positions.filter(p => p.id !== positionId);
@@ -226,7 +222,9 @@ class TradingSystem {
         this.updatePositionsDisplay();
         this.updateBalanceDisplay();
         
-        tradingChart.addExitPoint(position.currentPrice);
+        if (window.tradingChart) {
+            window.tradingChart.addExitPoint(position.currentPrice);
+        }
     }
     
     updatePositionsDisplay() {
@@ -238,7 +236,14 @@ class TradingSystem {
             return;
         }
         
-        container.innerHTML = this.openPositions.map(position => `
+        const currentAssetPositions = this.openPositions.filter(p => p.asset === this.currentAsset);
+        
+        if (currentAssetPositions.length === 0) {
+            container.innerHTML = '<div class="no-positions">Нет открытых позиций для этой валюты</div>';
+            return;
+        }
+        
+        container.innerHTML = currentAssetPositions.map(position => `
             <div class="position-item" data-id="${position.id}">
                 <div class="position-info">
                     <span class="position-asset">${position.asset}</span>
@@ -247,7 +252,7 @@ class TradingSystem {
                     </span>
                 </div>
                 <div class="position-details">
-                    <span>Вход: $${position.entryPrice.toFixed(2)}</span>
+                    <span>Вход: $${position.entryPrice.toFixed(this.getPriceDecimals())}</span>
                     <span class="position-profit ${position.pnl >= 0 ? 'positive' : 'negative'}">
                         $${position.pnl.toFixed(2)} (${position.roe.toFixed(2)}%)
                     </span>
@@ -263,7 +268,6 @@ class TradingSystem {
         document.getElementById('userBalance').textContent = 
             `$${balance.toFixed(2)}`;
         
-        // Расчет общего ROE
         const totalPnL = this.openPositions.reduce((sum, pos) => sum + pos.pnl, 0);
         const totalInvested = this.openPositions.reduce((sum, pos) => sum + pos.amount, 0);
         const totalROE = totalInvested > 0 ? (totalPnL / totalInvested) * 100 : 0;
@@ -273,9 +277,7 @@ class TradingSystem {
     }
     
     applyMarketImpact(direction, amount) {
-        // Влияние крупных сделок на рынок
         if (amount > 500) {
-            // Увеличение волатильности
             const data = loadFromStorage();
             if (data) {
                 const volatilityChange = direction === 'long' ? 0.01 : -0.01;
@@ -284,27 +286,8 @@ class TradingSystem {
             }
         }
     }
-    
-    // Обработка ликвидации
-    handleLiquidation(position) {
-        const data = loadFromStorage();
-        if (!data) return;
-        
-        // Обнуление баланса
-        data.balance = 0;
-        data.positions = data.positions.filter(p => p.id !== position.id);
-        saveToStorage(data);
-        
-        // Обновление отображения
-        this.openPositions = this.openPositions.filter(p => p.id !== position.id);
-        this.updateBalanceDisplay();
-        this.updatePositionsDisplay();
-        
-        alert(`Ликвидация! Баланс обнулен. Позиция ${position.asset} закрыта по стоп-ауту.`);
-    }
 }
 
-// Инициализация торговой системы
 let tradingSystem = null;
 
 function initTrading() {
@@ -312,7 +295,6 @@ function initTrading() {
     return tradingSystem;
 }
 
-// Глобальные функции для кнопок
 window.openPosition = function(direction) {
     if (tradingSystem) {
         tradingSystem.openPosition(direction);
@@ -325,6 +307,5 @@ window.closePosition = function() {
     }
 };
 
-// Экспорт функций
 window.initTrading = initTrading;
 window.TradingSystem = TradingSystem;
