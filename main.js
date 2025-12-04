@@ -1,27 +1,45 @@
+// Основная инициализация приложения
 document.addEventListener('DOMContentLoaded', function() {
+    // Инициализация Telegram Web App
     if (window.Telegram && Telegram.WebApp) {
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
         
+        // Установка цвета темы
         Telegram.WebApp.setBackgroundColor('#0f0f23');
         Telegram.WebApp.setHeaderColor('#1a1a2e');
     }
     
+    // Инициализация хранилища
     initStorage();
     
-    initChart();
-    initTrading();
-    initMarketEvents();
-    
-    loadHistory();
-    loadRanking();
-    
-    setupTabs();
-    setupAutoSave();
-    
-    initUI();
+    // Инициализация модулей
+    setTimeout(() => {
+        initChart();
+        initTrading();
+        initMarketEvents();
+        
+        // Загрузка истории и рейтинга
+        loadHistory();
+        loadRanking();
+        
+        // Настройка вкладок
+        setupTabs();
+        
+        // Автосохранение при закрытии
+        setupAutoSave();
+        
+        // Инициализация интерфейса
+        initUI();
+        
+        // Показать начальную цену
+        if (window.tradingSystem) {
+            window.tradingSystem.updateCurrentPriceDisplay();
+        }
+    }, 100);
 });
 
+// Настройка вкладок
 function setupTabs() {
     const tabs = document.querySelectorAll('.tab');
     const panes = document.querySelectorAll('.content-pane');
@@ -30,15 +48,24 @@ function setupTabs() {
         tab.addEventListener('click', function() {
             const tabName = this.getAttribute('data-tab');
             
+            // Обновление активных элементов
             tabs.forEach(t => t.classList.remove('active'));
             panes.forEach(p => p.classList.remove('active'));
             
             this.classList.add('active');
             document.getElementById(tabName).classList.add('active');
+            
+            // Обновляем контент вкладки
+            if (tabName === 'history') {
+                loadHistory();
+            } else if (tabName === 'ranking') {
+                loadRanking();
+            }
         });
     });
 }
 
+// Загрузка истории сделок
 function loadHistory() {
     const data = loadFromStorage();
     const container = document.getElementById('historyList');
@@ -51,6 +78,13 @@ function loadHistory() {
     }
     
     container.innerHTML = data.history.slice(0, 20).map(entry => {
+        // Определяем формат цены
+        let priceFormat = 2;
+        switch(entry.asset) {
+            case 'SHIB': priceFormat = 8; break;
+            case 'DOGE': priceFormat = 6; break;
+        }
+        
         const entryPrice = entry.entryPrice || 0;
         const exitPrice = entry.exitPrice || 0;
         const amount = entry.amount || 0;
@@ -61,15 +95,17 @@ function loadHistory() {
         <div class="history-item ${pnl >= 0 ? 'positive' : 'negative'}">
             <div>
                 <span class="history-asset">${entry.asset}</span>
-                <span class="history-direction ${entry.direction}">${entry.direction === 'long' ? 'Лонг' : 'Шорт'} ${entry.leverage}x</span>
+                <span class="history-direction ${entry.direction}">
+                    ${entry.direction === 'long' ? 'Лонг' : 'Шорт'} ${entry.leverage}x
+                </span>
             </div>
             <div>
-                <span>Открытие: ${new Date(entry.openTime).toLocaleString()}</span>
-                <span>Закрытие: ${new Date(entry.closeTime).toLocaleString()}</span>
+                <span class="history-time">${new Date(entry.openTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                <span class="history-time">${new Date(entry.closeTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
             </div>
             <div>
-                <span>Вход: $${entryPrice.toFixed(2)}</span>
-                <span>Выход: $${exitPrice.toFixed(2)}</span>
+                <span>Вход: $${entryPrice.toFixed(priceFormat)}</span>
+                <span>Выход: $${exitPrice.toFixed(priceFormat)}</span>
             </div>
             <div>
                 <span>Сумма: $${amount.toFixed(2)}</span>
@@ -78,9 +114,11 @@ function loadHistory() {
                 </span>
             </div>
         </div>
-    `}).join('');
+        `;
+    }).join('');
 }
 
+// Загрузка рейтинга
 function loadRanking() {
     const data = loadFromStorage();
     const container = document.getElementById('rankingList');
@@ -92,18 +130,23 @@ function loadRanking() {
         return;
     }
     
-    container.innerHTML = data.ranking.slice(0, 20).map((user, index) => `
-        <div class="ranking-item ${user.id === data.userData.userId ? 'current-user' : ''}">
+    container.innerHTML = data.ranking.slice(0, 20).map((user, index) => {
+        const isCurrentUser = user.id === data.userData.userId;
+        return `
+        <div class="ranking-item ${isCurrentUser ? 'current-user' : ''}">
             <div>
                 <span class="rank">#${index + 1}</span>
-                <span class="user-id">${user.id.substring(0, 8)}...</span>
+                <span class="user-id">${isCurrentUser ? 'Вы' : user.id.substring(0, 8)}</span>
             </div>
             <div class="user-balance">$${user.balance.toFixed(2)}</div>
         </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
+// Настройка автосохранения
 function setupAutoSave() {
+    // Сохранение при закрытии вкладки
     window.addEventListener('beforeunload', function() {
         const data = loadFromStorage();
         if (data && window.tradingSystem) {
@@ -112,6 +155,7 @@ function setupAutoSave() {
         }
     });
     
+    // Автосохранение каждые 30 секунд
     setInterval(() => {
         const data = loadFromStorage();
         if (data && window.tradingSystem) {
@@ -121,6 +165,7 @@ function setupAutoSave() {
     }, 30000);
 }
 
+// Покупка Stars через Telegram
 function buyStars() {
     if (window.Telegram && Telegram.WebApp) {
         Telegram.WebApp.showPopup({
@@ -140,6 +185,7 @@ function buyStars() {
     }
 }
 
+// Добавление баланса за Stars
 function addStarsBalance(amount) {
     const data = loadFromStorage();
     if (!data) return;
@@ -152,8 +198,10 @@ function addStarsBalance(amount) {
     }
     
     alert(`Баланс пополнен на $${amount.toFixed(2)}`);
+    loadRanking();
 }
 
+// Восстановление после ликвидации
 function restoreAccount() {
     if (window.Telegram && Telegram.WebApp) {
         Telegram.WebApp.showPopup({
@@ -188,7 +236,9 @@ function restoreBalance() {
     alert('Баланс восстановлен до $2,000');
 }
 
+// Инициализация интерфейса
 function initUI() {
+    // Добавление CSS для уведомлений
     const style = document.createElement('style');
     style.textContent = `
         @keyframes slideIn {
@@ -201,27 +251,42 @@ function initUI() {
             to { transform: translateX(100%); opacity: 0; }
         }
         
-        .event-notification.positive {
-            border-left: 4px solid #00ff88;
+        .event-notification {
+            font-size: 14px;
         }
         
-        .event-notification.negative {
-            border-left: 4px solid #ff4444;
+        .event-notification strong {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 16px;
+        }
+        
+        .event-notification p {
+            margin: 0;
+            font-size: 12px;
+            opacity: 0.9;
         }
         
         .current-user {
             background: #2d2d5a;
             border: 2px solid #00ff88;
         }
+        
+        .no-positions, .no-history, .no-ranking {
+            text-align: center;
+            padding: 20px;
+            color: #888;
+            font-style: italic;
+        }
+        
+        .history-time {
+            font-size: 12px;
+            color: #888;
+        }
     `;
     document.head.appendChild(style);
-    
-    setInterval(() => {
-        if (window.tradingSystem) {
-            window.tradingSystem.updateBalanceDisplay();
-        }
-    }, 1000);
 }
 
+// Экспорт глобальных функций
 window.buyStars = buyStars;
 window.restoreAccount = restoreAccount;
