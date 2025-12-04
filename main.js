@@ -1,40 +1,27 @@
-// Основная инициализация приложения
 document.addEventListener('DOMContentLoaded', function() {
-    // Инициализация Telegram Web App
     if (window.Telegram && Telegram.WebApp) {
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
         
-        // Установка цвета темы
         Telegram.WebApp.setBackgroundColor('#0f0f23');
         Telegram.WebApp.setHeaderColor('#1a1a2e');
     }
     
-    // Инициализация хранилища
     initStorage();
     
-    // Инициализация модулей
     initChart();
     initTrading();
     initMarketEvents();
     
-    // Загрузка истории
     loadHistory();
-    
-    // Загрузка рейтинга
     loadRanking();
     
-    // Настройка вкладок
     setupTabs();
-    
-    // Автосохранение при закрытии
     setupAutoSave();
     
-    // Инициализация интерфейса
     initUI();
 });
 
-// Настройка вкладок
 function setupTabs() {
     const tabs = document.querySelectorAll('.tab');
     const panes = document.querySelectorAll('.content-pane');
@@ -43,7 +30,6 @@ function setupTabs() {
         tab.addEventListener('click', function() {
             const tabName = this.getAttribute('data-tab');
             
-            // Обновление активных элементов
             tabs.forEach(t => t.classList.remove('active'));
             panes.forEach(p => p.classList.remove('active'));
             
@@ -53,7 +39,6 @@ function setupTabs() {
     });
 }
 
-// Загрузка истории сделок
 function loadHistory() {
     const data = loadFromStorage();
     const container = document.getElementById('historyList');
@@ -65,8 +50,15 @@ function loadHistory() {
         return;
     }
     
-    container.innerHTML = data.history.slice(0, 20).map(entry => `
-        <div class="history-item ${entry.pnl >= 0 ? 'positive' : 'negative'}">
+    container.innerHTML = data.history.slice(0, 20).map(entry => {
+        const entryPrice = entry.entryPrice || 0;
+        const exitPrice = entry.exitPrice || 0;
+        const amount = entry.amount || 0;
+        const pnl = entry.pnl || 0;
+        const roe = entry.roe || 0;
+        
+        return `
+        <div class="history-item ${pnl >= 0 ? 'positive' : 'negative'}">
             <div>
                 <span class="history-asset">${entry.asset}</span>
                 <span class="history-direction ${entry.direction}">${entry.direction === 'long' ? 'Лонг' : 'Шорт'} ${entry.leverage}x</span>
@@ -76,20 +68,19 @@ function loadHistory() {
                 <span>Закрытие: ${new Date(entry.closeTime).toLocaleString()}</span>
             </div>
             <div>
-                <span>Вход: $${entry.entryPrice.toFixed(2)}</span>
-                <span>Выход: $${entry.exitPrice.toFixed(2)}</span>
+                <span>Вход: $${entryPrice.toFixed(2)}</span>
+                <span>Выход: $${exitPrice.toFixed(2)}</span>
             </div>
             <div>
-                <span>Сумма: $${entry.amount.toFixed(2)}</span>
-                <span class="history-pnl ${entry.pnl >= 0 ? 'positive' : 'negative'}">
-                    P&L: $${entry.pnl.toFixed(2)} (ROE: ${entry.roe.toFixed(2)}%)
+                <span>Сумма: $${amount.toFixed(2)}</span>
+                <span class="history-pnl ${pnl >= 0 ? 'positive' : 'negative'}">
+                    P&L: $${pnl.toFixed(2)} (ROE: ${roe.toFixed(2)}%)
                 </span>
             </div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
-// Загрузка рейтинга
 function loadRanking() {
     const data = loadFromStorage();
     const container = document.getElementById('rankingList');
@@ -112,28 +103,24 @@ function loadRanking() {
     `).join('');
 }
 
-// Настройка автосохранения
 function setupAutoSave() {
-    // Сохранение при закрытии вкладки
     window.addEventListener('beforeunload', function() {
         const data = loadFromStorage();
-        if (data && tradingSystem) {
-            data.positions = tradingSystem.openPositions;
+        if (data && window.tradingSystem) {
+            data.positions = window.tradingSystem.openPositions;
             saveToStorage(data);
         }
     });
     
-    // Автосохранение каждые 30 секунд
     setInterval(() => {
         const data = loadFromStorage();
-        if (data && tradingSystem) {
-            data.positions = tradingSystem.openPositions;
+        if (data && window.tradingSystem) {
+            data.positions = window.tradingSystem.openPositions;
             saveToStorage(data);
         }
     }, 30000);
 }
 
-// Покупка Stars через Telegram
 function buyStars() {
     if (window.Telegram && Telegram.WebApp) {
         Telegram.WebApp.showPopup({
@@ -145,18 +132,14 @@ function buyStars() {
             ]
         }, function(buttonId) {
             if (buttonId === 'ok') {
-                // Здесь должна быть интеграция с платежной системой Telegram
-                // В демо-версии просто добавляем баланс
                 addStarsBalance(1000);
             }
         });
     } else {
-        // Для тестирования вне Telegram
         addStarsBalance(1000);
     }
 }
 
-// Добавление баланса за Stars
 function addStarsBalance(amount) {
     const data = loadFromStorage();
     if (!data) return;
@@ -164,14 +147,13 @@ function addStarsBalance(amount) {
     data.balance += amount;
     saveToStorage(data);
     
-    if (tradingSystem) {
-        tradingSystem.updateBalanceDisplay();
+    if (window.tradingSystem) {
+        window.tradingSystem.updateBalanceDisplay();
     }
     
     alert(`Баланс пополнен на $${amount.toFixed(2)}`);
 }
 
-// Восстановление после ликвидации
 function restoreAccount() {
     if (window.Telegram && Telegram.WebApp) {
         Telegram.WebApp.showPopup({
@@ -198,17 +180,15 @@ function restoreBalance() {
     data.balance = 2000;
     saveToStorage(data);
     
-    if (tradingSystem) {
-        tradingSystem.updateBalanceDisplay();
+    if (window.tradingSystem) {
+        window.tradingSystem.updateBalanceDisplay();
     }
     
     loadRanking();
     alert('Баланс восстановлен до $2,000');
 }
 
-// Инициализация интерфейса
 function initUI() {
-    // Добавление CSS для уведомлений
     const style = document.createElement('style');
     style.textContent = `
         @keyframes slideIn {
@@ -236,14 +216,12 @@ function initUI() {
     `;
     document.head.appendChild(style);
     
-    // Обновление данных каждую секунду
     setInterval(() => {
-        if (tradingSystem) {
-            tradingSystem.updateBalanceDisplay();
+        if (window.tradingSystem) {
+            window.tradingSystem.updateBalanceDisplay();
         }
     }, 1000);
 }
 
-// Экспорт глобальных функций
 window.buyStars = buyStars;
 window.restoreAccount = restoreAccount;
