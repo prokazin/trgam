@@ -27,7 +27,6 @@
             <button class="tab active" data-tab="trade">Торговля</button>
             <button class="tab" data-tab="history">История</button>
             <button class="tab" data-tab="ranking">Рейтинг</button>
-            <button class="tab" data-tab="events">События</button>
         </div>
 
         <!-- Контент вкладок -->
@@ -63,7 +62,16 @@
                         </div>
 
                         <div class="trade-actions">
-                            <input type="number" id="tradeAmount" placeholder="Сумма" min="1" value="100">
+                            <div class="amount-selector">
+                                <span>Сумма:</span>
+                                <div class="amount-buttons">
+                                    <button class="amount-btn" data-amount="10">$10</button>
+                                    <button class="amount-btn" data-amount="50">$50</button>
+                                    <button class="amount-btn active" data-amount="100">$100</button>
+                                    <button class="amount-btn" data-amount="500">$500</button>
+                                </div>
+                            </div>
+                            
                             <input type="number" id="stopLoss" placeholder="Стоп-лосс %" min="1" max="99" value="5">
                             
                             <div class="action-buttons">
@@ -93,12 +101,6 @@
             <div id="ranking" class="content-pane">
                 <h3>Топ игроков</h3>
                 <div class="ranking-list" id="rankingList"></div>
-            </div>
-
-            <!-- Вкладка События -->
-            <div id="events" class="content-pane">
-                <h3>Рыночные события</h3>
-                <div class="events-list" id="eventsList"></div>
             </div>
         </div>
     </div>
