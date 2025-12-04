@@ -1,7 +1,6 @@
 class MarketEvents {
     constructor() {
         this.events = [
-            // Положительные события (15)
             { id: 1, type: 'positive', title: 'Принят биткоин-ETF', description: 'SEC одобрила биткоин-ETF', priceImpact: 0.15, volatilityImpact: 0.05 },
             { id: 2, type: 'positive', title: 'Халвинг биткоина', description: 'Прошел очередной халвинг', priceImpact: 0.12, volatilityImpact: 0.04 },
             { id: 3, type: 'positive', title: 'Крупная инвестиция', description: 'Институциональный инвестор купил биткоин', priceImpact: 0.10, volatilityImpact: 0.03 },
@@ -18,7 +17,6 @@ class MarketEvents {
             { id: 14, type: 'positive', title: 'Геймификация', description: 'Добавлены игровые элементы', priceImpact: 0.03, volatilityImpact: 0.01 },
             { id: 15, type: 'positive', title: 'Стейкинг', description: 'Запущен стейкинг', priceImpact: 0.04, volatilityImpact: 0.02 },
             
-            // Отрицательные события (15)
             { id: 16, type: 'negative', title: 'Запрет регулятора', description: 'Регулятор запретил криптовалюты', priceImpact: -0.20, volatilityImpact: 0.08 },
             { id: 17, type: 'negative', title: 'Взлом биржи', description: 'Крупная биржа взломана', priceImpact: -0.18, volatilityImpact: 0.07 },
             { id: 18, type: 'negative', title: 'Мошенничество', description: 'Обнаружено крупное мошенничество', priceImpact: -0.15, volatilityImpact: 0.06 },
@@ -43,28 +41,10 @@ class MarketEvents {
     }
     
     initEvents() {
-        this.displayEvents();
         this.startRandomEvents();
     }
     
-    displayEvents() {
-        const container = document.getElementById('eventsList');
-        if (!container) return;
-        
-        container.innerHTML = this.events.map(event => `
-            <div class="event-item ${event.type}">
-                <div class="event-title">${event.title}</div>
-                <div class="event-description">${event.description}</div>
-                <div class="event-impact">
-                    <span>Влияние на цену: ${event.priceImpact > 0 ? '+' : ''}${(event.priceImpact * 100).toFixed(1)}%</span>
-                    <span>Волатильность: ${(event.volatilityImpact * 100).toFixed(1)}%</span>
-                </div>
-            </div>
-        `).join('');
-    }
-    
     startRandomEvents() {
-        // Случайное событие каждые 30-60 секунд
         this.eventInterval = setInterval(() => {
             this.triggerRandomEvent();
         }, 30000 + Math.random() * 30000);
@@ -74,13 +54,10 @@ class MarketEvents {
         const randomEvent = this.events[Math.floor(Math.random() * this.events.length)];
         this.activeEvents.push(randomEvent);
         
-        // Показ уведомления
         this.showEventNotification(randomEvent);
         
-        // Применение эффекта
         this.applyEventEffect(randomEvent);
         
-        // Удаление события через 30 секунд
         setTimeout(() => {
             this.activeEvents = this.activeEvents.filter(e => e.id !== randomEvent.id);
             this.removeEventEffect(randomEvent);
@@ -88,7 +65,6 @@ class MarketEvents {
     }
     
     showEventNotification(event) {
-        // Создание всплывающего уведомления
         const notification = document.createElement('div');
         notification.className = `event-notification ${event.type}`;
         notification.innerHTML = `
@@ -111,7 +87,6 @@ class MarketEvents {
         
         document.body.appendChild(notification);
         
-        // Удаление через 5 секунд
         setTimeout(() => {
             notification.style.animation = 'slideOut 0.3s ease';
             setTimeout(() => {
@@ -124,14 +99,11 @@ class MarketEvents {
         const data = loadFromStorage();
         if (!data) return;
         
-        // Применение к волатильности
         Object.keys(data.market.volatility).forEach(asset => {
             data.market.volatility[asset] += event.volatilityImpact;
-            // Ограничение волатильности
             data.market.volatility[asset] = Math.max(0.01, Math.min(0.2, data.market.volatility[asset]));
         });
         
-        // Применение к ценам
         Object.keys(data.market.prices).forEach(asset => {
             data.market.prices[asset] *= (1 + event.priceImpact);
         });
@@ -143,13 +115,11 @@ class MarketEvents {
         const data = loadFromStorage();
         if (!data) return;
         
-        // Отмена эффекта волатильности
         Object.keys(data.market.volatility).forEach(asset => {
             data.market.volatility[asset] -= event.volatilityImpact;
             data.market.volatility[asset] = Math.max(0.01, Math.min(0.2, data.market.volatility[asset]));
         });
         
-        // Отмена эффекта цен (частичная)
         Object.keys(data.market.prices).forEach(asset => {
             data.market.prices[asset] /= (1 + event.priceImpact * 0.5);
         });
@@ -158,7 +128,6 @@ class MarketEvents {
     }
 }
 
-// Инициализация событий рынка
 let marketEvents = null;
 
 function initMarketEvents() {
@@ -166,6 +135,5 @@ function initMarketEvents() {
     return marketEvents;
 }
 
-// Экспорт функций
 window.initMarketEvents = initMarketEvents;
 window.MarketEvents = MarketEvents;
