@@ -19,7 +19,8 @@ function initStorage() {
                     BTC: 0.02,
                     SHIB: 0.05,
                     DOGE: 0.03
-                }
+                },
+                lastUpdate: Date.now()
             },
             ranking: []
         };
@@ -30,6 +31,11 @@ function initStorage() {
 // Генерация ID пользователя
 function generateUserId() {
     return 'user_' + Math.random().toString(36).substr(2, 9);
+}
+
+// Генерация ID
+function generateId() {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
 // Сохранение данных
@@ -98,21 +104,19 @@ function updateBalance(newBalance) {
     const userIndex = data.ranking.findIndex(u => u.id === data.userData.userId);
     if (userIndex !== -1) {
         data.ranking[userIndex].balance = newBalance;
+        data.ranking[userIndex].lastUpdate = new Date().toISOString();
     } else {
         data.ranking.push({
             id: data.userData.userId,
-            balance: newBalance
+            balance: newBalance,
+            lastUpdate: new Date().toISOString()
         });
     }
     
     data.ranking.sort((a, b) => b.balance - a.balance);
+    data.market.lastUpdate = Date.now();
     
     return saveToStorage(data);
-}
-
-// Генерация ID
-function generateId() {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
 // Очистка данных
@@ -128,3 +132,4 @@ window.savePosition = savePosition;
 window.saveToHistory = saveToHistory;
 window.updateBalance = updateBalance;
 window.clearStorage = clearStorage;
+window.generateId = generateId;
