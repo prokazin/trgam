@@ -83,7 +83,7 @@ function saveToHistory(position) {
     };
     
     data.history.unshift(historyEntry);
-    data.history = data.history.slice(0, 100); // Храним только последние 100 записей
+    data.history = data.history.slice(0, 100);
     
     return saveToStorage(data);
 }
@@ -95,7 +95,6 @@ function updateBalance(newBalance) {
     
     data.balance = newBalance;
     
-    // Обновление в рейтинге
     const userIndex = data.ranking.findIndex(u => u.id === data.userData.userId);
     if (userIndex !== -1) {
         data.ranking[userIndex].balance = newBalance;
@@ -106,7 +105,6 @@ function updateBalance(newBalance) {
         });
     }
     
-    // Сортировка рейтинга
     data.ranking.sort((a, b) => b.balance - a.balance);
     
     return saveToStorage(data);
@@ -117,7 +115,7 @@ function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
-// Очистка данных (для тестирования)
+// Очистка данных
 function clearStorage() {
     localStorage.removeItem('tradingData');
     initStorage();
